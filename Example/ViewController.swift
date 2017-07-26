@@ -20,10 +20,10 @@ class ViewController: UIViewController {
     }
     
     @IBAction func openCamera(_ sender: AnyObject) {
-        let cameraViewController = CameraViewController(croppingEnabled: croppingEnabled) { [weak self] image, asset in
+        let cameraViewController = CameraViewController(completion: { [weak self] image in
             self?.imageView.image = image
             self?.dismiss(animated: true, completion: nil)
-        }
+        })
         
         present(cameraViewController, animated: true, completion: nil)
     }

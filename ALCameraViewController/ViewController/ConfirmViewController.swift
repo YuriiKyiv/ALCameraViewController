@@ -139,13 +139,13 @@ public class ConfirmViewController: UIViewController, UIScrollViewDelegate {
     }
     
     internal func cancel() {
-        onComplete?(nil, nil)
+        onComplete?(nil)
     }
     
     internal func confirmPhoto() {
         imageView.isHidden = true
 
-        self.onComplete?(image, nil)
+        self.onComplete?(image)
     }
     
     public func viewForZooming(in scrollView: UIScrollView) -> UIView? {
