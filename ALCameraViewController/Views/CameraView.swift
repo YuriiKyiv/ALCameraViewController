@@ -142,6 +142,10 @@ public class CameraView: UIView {
         preview.frame = bounds
 
         layer.addSublayer(preview)
+        
+        //FIXME: its temp solution for fixing a bug with orientation
+        let orientation = UIApplication.shared.statusBarOrientation.rawValue
+        preview.connection.videoOrientation = AVCaptureVideoOrientation(rawValue: orientation) ?? .portrait
     }
     
     private func cameraWithPosition(position: AVCaptureDevicePosition) -> AVCaptureDevice? {
