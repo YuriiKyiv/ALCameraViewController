@@ -12,37 +12,6 @@ import Photos
 
 public typealias CameraViewCompletion = (UIImage?, PHAsset?) -> Void
 
-public extension CameraViewController {
-    /// Provides an image picker wrapped inside a UINavigationController instance
-    public class func imagePickerViewController(croppingEnabled: Bool, completion: @escaping CameraViewCompletion) -> UINavigationController {
-        let imagePicker = PhotoLibraryViewController()
-        let navigationController = UINavigationController(rootViewController: imagePicker)
-        
-        navigationController.navigationBar.barTintColor = UIColor.black
-        navigationController.navigationBar.barStyle = UIBarStyle.black
-        navigationController.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
-
-        imagePicker.onSelectionComplete = { [weak imagePicker] asset in
-            if let asset = asset {
-                let confirmController = ConfirmViewController(asset: asset, allowsCropping: croppingEnabled)
-                confirmController.onComplete = { [weak imagePicker] image, asset in
-                    if let image = image, let asset = asset {
-                        completion(image, asset)
-                    } else {
-                        imagePicker?.dismiss(animated: true, completion: nil)
-                    }
-                }
-                confirmController.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
-                imagePicker?.present(confirmController, animated: true, completion: nil)
-            } else {
-                completion(nil, nil)
-            }
-        }
-        
-        return navigationController
-    }
-}
-
 open class CameraViewController: UIViewController {
     
     var didUpdateViews = false
@@ -156,13 +125,11 @@ open class CameraViewController: UIViewController {
         return view
     }()
   
-    public init(croppingEnabled: Bool, allowsLibraryAccess: Bool = true, completion: @escaping CameraViewCompletion) {
+    public init(croppingEnabled: Bool, completion: @escaping CameraViewCompletion) {
         super.init(nibName: nil, bundle: nil)
         onCompletion = completion
         allowCropping = croppingEnabled
         cameraOverlay.isHidden = !allowCropping
-        libraryButton.isEnabled = allowsLibraryAccess
-        libraryButton.isHidden = !allowsLibraryAccess
     }
   
     required public init?(coder aDecoder: NSCoder) {
@@ -359,7 +326,6 @@ open class CameraViewController: UIViewController {
     private func setupActions() {
         cameraButton.action = { [weak self] in self?.capturePhoto() }
         swapButton.action = { [weak self] in self?.swapCamera() }
-        libraryButton.action = { [weak self] in self?.showLibrary() }
         closeButton.action = { [weak self] in self?.close() }
         flashButton.action = { [weak self] in self?.toggleFlash() }
     }
@@ -493,51 +459,26 @@ open class CameraViewController: UIViewController {
                     self?.toggleButtons(enabled: true)
                     return
                 }
-                self?.saveImage(image: image)
+                
+                if let action = self?.onCompletion {
+                    self?.cameraView.stopSession()
+                    self?.toggleButtons(enabled: true)
+                    action(image, nil)
+                }
+//                self?.saveImage(image: image)
             }
         }
     }
     
     internal func saveImage(image: UIImage) {
-        let spinner = showSpinner()
         cameraView.preview.isHidden = true
-
-        _ = SingleImageSaver()
-            .setImage(image)
-            .onSuccess { [weak self] asset in
-                self?.layoutCameraResult(asset: asset)
-                self?.hideSpinner(spinner)
-            }
-            .onFailure { [weak self] error in
-                self?.toggleButtons(enabled: true)
-                self?.showNoPermissionsView(library: true)
-                self?.cameraView.preview.isHidden = false
-                self?.hideSpinner(spinner)
-            }
-            .save()
+        self.layoutCameraResult(image: image)
+        self.cameraView.preview.isHidden = false
     }
     
     internal func close() {
         onCompletion?(nil, nil)
         onCompletion = nil
-    }
-    
-    internal func showLibrary() {
-        let imagePicker = CameraViewController.imagePickerViewController(croppingEnabled: allowCropping) { [weak self] image, asset in
-            defer {
-                self?.dismiss(animated: true, completion: nil)
-            }
-
-            guard let image = image, let asset = asset else {
-                return
-            }
-
-            self?.onCompletion?(image, asset)
-        }
-        
-        present(imagePicker, animated: true) { [weak self] in
-            self?.cameraView.stopSession()
-        }
     }
     
     internal func toggleFlash() {
@@ -559,14 +500,14 @@ open class CameraViewController: UIViewController {
         flashButton.isHidden = cameraView.currentPosition == AVCaptureDevicePosition.front
     }
     
-    internal func layoutCameraResult(asset: PHAsset) {
+    internal func layoutCameraResult(image: UIImage) {
         cameraView.stopSession()
-        startConfirmController(asset: asset)
+        startConfirmController(image: image)
         toggleButtons(enabled: true)
     }
     
-    private func startConfirmController(asset: PHAsset) {
-        let confirmViewController = ConfirmViewController(asset: asset, allowsCropping: allowCropping)
+    private func startConfirmController(image: UIImage) {
+        let confirmViewController = ConfirmViewController(image: image)
         confirmViewController.onComplete = { [weak self] image, asset in
             defer {
                 self?.dismiss(animated: true, completion: nil)
